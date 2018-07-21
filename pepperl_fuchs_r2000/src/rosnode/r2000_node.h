@@ -32,6 +32,8 @@
 
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include <pepperl_fuchs_r2000/set_scan_angle.h>
+#include <pepperl_fuchs_r2000/set_filter.h>
 
 namespace pepperl_fuchs {
 class R2000Driver;
@@ -47,6 +49,10 @@ public:
     //! Callback function for control commands
     void cmdMsgCallback( const std_msgs::StringConstPtr& msg );
 
+    // set filter service callback
+    bool setFilterCbk(pepperl_fuchs_r2000::set_filterRequest &req, pepperl_fuchs_r2000::set_filterResponse &res);
+
+    bool setAngleCbk(pepperl_fuchs_r2000::set_scan_angleRequest &req, pepperl_fuchs_r2000::set_scan_angleResponse &res);
 private:
     //! Connect to the laser range finder
     //! @returns True on success, false otherwise
@@ -78,6 +84,22 @@ private:
 
     //! samples_per_scan parameter
     int samples_per_scan_;
+
+    // filter
+    std::string filter_type_;
+    std::string filter_width_;
+    std::string filter_error_handling_;
+    std::string filter_maximum_margin_;
+    std::string filter_remission_threshold_;
+    int start_angle_;
+    int end_angle_;
+
+
+    // service
+    ros::ServiceServer set_scan_angle_srv_;
+    ros::ServiceServer set_filter_srv_;
+
+
 
     //! Pointer to driver
     R2000Driver* driver_;

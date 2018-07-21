@@ -168,6 +168,16 @@ bool HttpCommandInterface::setParameter(const std::string name, const std::strin
     return sendHttpCommand("set_parameter",name,value) && checkErrorCode();
 }
 
+bool HttpCommandInterface::setParameters(std::map<std::string, std::string> parameters) {
+    return sendHttpCommand("set_parameter",parameters);
+
+}
+
+bool HttpCommandInterface::setOutputConfig(std::map<std::string, std::string> parameters) {
+    return sendHttpCommand("set_scanoutput_config",parameters);
+
+}
+
 //-----------------------------------------------------------------------------
 boost::optional< std::string > HttpCommandInterface::getParameter(const std::string name)
 {
@@ -199,6 +209,37 @@ std::map< std::string, std::string > HttpCommandInterface::getParameters(const s
         else
             key_values[s] = "--COULD NOT RETRIEVE VALUE--";
     }
+
+    return key_values;
+}
+
+//getOutputParameterList
+std::map< std::string, std::string > HttpCommandInterface::getOutputParameterList(const std::string& handle )
+{
+    // Build request string
+    std::map< std::string, std::string > key_values;
+
+    // Read parameter values via HTTP/JSON request/response
+    //        if( !sendHttpCommand("get_scanoutput_config","handle","s22") || !checkErrorCode() )
+//    return parameter_list;
+    //
+//        std::cout<<"====== handle   "<<handle<<std::endl;
+    // todo:terminate called after throwing an instance of 'std::out_of_range'
+    // crash at this line; so the node restart many times , create more than 3 connections
+    if( !sendHttpCommand("get_scanoutput_config","handle",handle) || !checkErrorCode() )
+        return key_values;
+
+//
+#if 1
+    for( auto i= pt_.begin(); i!=pt_.end(); i++ )
+    {
+//            std::cout<<" ======\n get_scanoutput_config   "<< i->first<<" = "<< i->second.get<std::string>("")<<std::endl;
+
+
+//            std::string param = i->second.get<std::string>("");
+        key_values[i->first] = i->second.get<std::string>("");
+    }
+#endif
 
     return key_values;
 }

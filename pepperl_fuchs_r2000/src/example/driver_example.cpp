@@ -32,11 +32,16 @@
 #include <thread>
 #include <chrono>
 #include <pepperl_fuchs_r2000/r2000_driver.h>
+#include <ros/ros.h>
+#include <sensor_msgs/LaserScan.h>
 
 int main(int argc, char **argv)
 {
+    ros::init(argc,argv,"laser_driver");
+    ros::NodeHandle nh;
+    ros::NodeHandle nh_private("~");
     std::cout << "Hello world!" << std::endl;
-    std::string scanner_ip("192.168.1.71");
+    std::string scanner_ip("192.168.7.10");
     pepperl_fuchs::R2000Driver driver;
 
     for( int i=0; i<2; i++ )
@@ -71,6 +76,7 @@ int main(int argc, char **argv)
             std::cout << "FAILED!" << std::endl;
             return 1;
         }
+        driver.getOutputParameterList();
 
         for (int s = 0; s < 5; s++)
         {
@@ -87,10 +93,45 @@ int main(int argc, char **argv)
 
         std::cout << "Trying to stop capture" << std::endl;
 
-        std::cout << "Stopping capture: " << driver.stopCapturing() << std::endl;
 
     }
 
     std::cout << "Goodbye world!" << std::endl;
+
+    std::cout << "Get full data!" << std::endl;
+
+    if( !driver.isCapturing() )
+    {
+        std::cout << "ERROR: Laser range finder disconnected. Trying to reconnect..." << std::endl;
+
+    }
+    auto scandata = driver.getFullScan();
+    if( scandata.amplitude_data.empty() || scandata.distance_data.empty() )
+        return 0 ;
+
+    sensor_msgs::LaserScan scanmsg;
+    scanmsg.header.frame_id = "laser";
+    scanmsg.header.stamp = ros::Time::now();
+
+    scanmsg.angle_min = -M_PI;
+    scanmsg.angle_max = +M_PI;
+    scanmsg.angle_increment = 2*M_PI/float(scandata.distance_data.size());
+    scanmsg.time_increment = 1/35.0f/float(scandata.distance_data.size());
+
+    scanmsg.scan_time = 1/std::atof(driver.getParametersCached().at("scan_frequency").c_str());
+    scanmsg.range_min = std::atof(driver.getParametersCached().at("radial_range_min").c_str());
+    scanmsg.range_max = std::atof(driver.getParametersCached().at("radial_range_max").c_str());
+
+    scanmsg.ranges.resize(scandata.distance_data.size());
+    scanmsg.intensities.resize(scandata.amplitude_data.size());
+    for( std::size_t i=0; i<scandata.distance_data.size(); i++ )
+    {
+        scanmsg.ranges[i] = float(scandata.distance_data[i])/1000.0f;
+        scanmsg.intensities[i] = scandata.amplitude_data[i];
+    }
+
+
+    std::cout << "Stopping capture: " << driver.stopCapturing() << std::endl;
+
     return 0;
 }

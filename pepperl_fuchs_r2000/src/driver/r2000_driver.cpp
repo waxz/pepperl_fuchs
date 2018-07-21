@@ -74,13 +74,25 @@ R2000Driver::~R2000Driver()
     disconnect();
 }
 
+
+    bool R2000Driver::createHandle() {
+        if( !checkConnection() )
+            return false;
+
+        if(!handle_info_)
+            handle_info_ = command_interface_->requestHandleTCP();
+        if( !handle_info_ )
+            return false;
+        return true;
+    }
 //-----------------------------------------------------------------------------
 bool R2000Driver::startCapturingTCP()
 {
     if( !checkConnection() )
         return false;
 
-    handle_info_ = command_interface_->requestHandleTCP();
+    if(!handle_info_)
+        handle_info_ = command_interface_->requestHandleTCP();
     if( !handle_info_ )
         return false;
 
@@ -226,6 +238,16 @@ const std::map< std::string, std::string >& R2000Driver::getParameters()
     return parameters_;
 }
 
+    //-----------------------------------------------------------------------------
+    const std::map< std::string, std::string >& R2000Driver::getOutputParameterList()
+    {
+        std::cout<<"===== handle ==== "<< (*handle_info_).handle<<std::endl;
+
+        if( command_interface_ )
+            config_ = command_interface_->getOutputParameterList((*handle_info_).handle);
+        return config_;
+    }
+
 //-----------------------------------------------------------------------------
 bool R2000Driver::setScanFrequency(unsigned int frequency)
 {
@@ -278,6 +300,33 @@ void R2000Driver::feedWatchdog(bool feed_always)
         watchdog_feed_time_ = current_time;
     }
 }
+
+    //-----------------------------------------------------------------------------
+    bool R2000Driver::setParams(std::map<std::string, std::string> config)
+    {
+
+        if( !command_interface_ )
+            return false;
+        return command_interface_->setParameters(config);
+
+    }
+
+    bool R2000Driver::setOutputConfig(std::map<std::string, std::string> config) {
+        config["handle"] = (*handle_info_).handle;
+        if( !command_interface_ )
+            return false;
+        return command_interface_->setOutputConfig(config);
+    }
+
+
+    bool R2000Driver::startScanoutput() {
+        return command_interface_->startScanOutput((*handle_info_).handle);
+    }
+
+    bool R2000Driver::stopScanoutput() {
+        return command_interface_->stopScanOutput((*handle_info_).handle);
+
+    }
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------

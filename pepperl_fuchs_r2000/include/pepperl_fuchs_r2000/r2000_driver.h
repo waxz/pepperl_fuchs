@@ -68,6 +68,9 @@ public:
     //! @returns True in case of success, False otherwise
     bool startCapturingTCP();
 
+    // create tcp handle
+    bool createHandle();
+
     //! Start capturing laserdata: Requests a handle and begin retrieving data from the scanner
     //! @returns True in case of success, False otherwise
     bool startCapturingUDP();
@@ -92,9 +95,15 @@ public:
     //! @returns A key->value map with parametername->value
     const std::map< std::string, std::string >& getParameters();
 
+    //getOutputParameterList
+    const std::map< std::string, std::string >& getOutputParameterList();
+
+
     //! Get cached parameter values of the scanner
     //! @returns A key->value map with parametername->value
     const std::map< std::string, std::string >& getParametersCached() const {return parameters_;}
+
+    const std::map< std::string, std::string >& getConfigCached() const {return config_;}
 
     //! Pop a single scan out of the driver's interal FIFO queue
     //! CAUTION: Returns also unfinished scans for which a full rotation is not received yet
@@ -138,6 +147,17 @@ public:
     //! Feed the watchdog with the current handle ID, to keep the data connection alive
     void feedWatchdog(bool feed_always = false);
 
+    // set filter
+    bool setParams(std::map<std::string, std::string> config);
+
+    //set_scanoutput_config
+    bool setOutputConfig(std::map<std::string, std::string> config);
+    // start scan out
+    bool startScanoutput();
+    // stop scan out
+
+    bool stopScanoutput();
+
 private:
     //! HTTP/JSON interface of the scanner
     HttpCommandInterface* command_interface_;
@@ -165,6 +185,8 @@ private:
 
     //! Cached version of all parameter values
     std::map< std::string, std::string > parameters_;
+
+    std::map< std::string, std::string > config_;
 };
 
 } // NS pepperl_fuchs

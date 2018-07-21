@@ -1,9 +1,26 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="frame_id" default="/scan"/>
-  <arg name="scanner_ip" default="10.0.10.9"/>
-  <arg name="scan_frequency" default="35"/>
-  <arg name="samples_per_scan" default="3600"/>
+  <arg name="frame_id" default="/laser"/>
+  <arg name="scanner_ip" default="192.168.7.10"/>
+  <arg name="scan_frequency" default="10"/>
+  <!-- scan resolulotion 3600,0.1 7200,0.05-->
+  <arg name="samples_per_scan" default="8400"/>
+  <!-- scan_frequency*samples_per_scan <84000-->
+
+  <arg name="start_angle" default="-180"/>
+  <arg name="end_angle" default="180"/>
+
+  <arg name="filter_type" default="median"/>
+  <!-- none, average, median, maximum, remission-->
+  <arg name="filter_width" default="8"/>
+  <!-- 2, 4, 8, 16 -->
+  <arg name="filter_error_handling" default="tolerant"/>
+  <!-- tolerant, strict, -->
+  <arg name="filter_maximum_margin" default="100"/>
+  <arg name="filter_remission_threshold" default="reflector_std"/>
+  <!-- diffuse_low, diffuse_high, reflector_min, reflector_low, reflector_std, reflector_high , reflector_max-->
+
+
 
   <!-- R2000 Driver -->
   <node pkg="pepperl_fuchs_r2000" type="r2000_node" name="r2000_node" respawn="true" output="screen">
@@ -11,9 +28,34 @@
     <param name="scanner_ip" value="$(arg scanner_ip)"/>
     <param name="scan_frequency" value="$(arg scan_frequency)"/>
     <param name="samples_per_scan" value="$(arg samples_per_scan)"/>
+
+    <param name="samples_per_scan" value="$(arg samples_per_scan)"/>
+    <param name="filter_type" value="$(arg filter_type)"/>
+    <param name="filter_width" value="$(arg filter_width)"/>
+    <param name="filter_error_handling" value="$(arg filter_error_handling)"/>
+    <param name="filter_maximum_margin" value="$(arg filter_maximum_margin)"/>
+    <param name="filter_remission_threshold" value="$(arg filter_remission_threshold)"/>
+    <param name="start_angle" value="$(arg start_angle)"/>
+    <param name="end_angle" value="$(arg end_angle)"/>
+
+
+    <remap from="/r2000_node/scan" to="/scan"/>
   </node>
 
   <!-- RVIZ -->
-  <node pkg="rviz" type="rviz" name="$(anon rviz)" respawn="false" output="screen" args="-d $(find pepperl_fuchs_r2000)/rviz/rviz.rviz"/>
+  <node pkg="rviz" type="rviz" name="$(anon rviz)" respawn="false" output="screen" args="-d $(find pepperl_fuchs_r2000)/rviz/rviz.rviz">
+  <remap from="/r2000_node/scan" to="/scan_init"/>
+  </node>
+
+  <!--
+  <node pkg="tf" type="static_transform_publisher" name="static_transform_publisher1" args="0 0 0 0 0 0 1 odom base_link 40"/>
+
+  <node pkg="tf" type="static_transform_publisher" name="static_transform_publisher2" args="0.1 0 0 0 0 0 1 base_link laser 40"/>
+
+
+  <node pkg="tf" type="static_transform_publisher" name="static_transform_publisher3" args="0.1 0 0 0 0 0 1 map laser 40"/>
+
+  <include file="$(find pepperl_fuchs_r2000)/launch/median_filter_5_example.launch" />
+-->
 
 </launch>

@@ -43,6 +43,16 @@ R2000Node::R2000Node():nh_("~")
     nh_.param("scanner_ip",scanner_ip_,std::string(""));
     nh_.param("scan_frequency",scan_frequency_,35);
     nh_.param("samples_per_scan",samples_per_scan_,3600);
+    nh_.param("start_angle",start_angle_,-180);
+    nh_.param("end_angle",end_angle_,180);
+
+
+    nh_.param("filter_type",filter_type_,std::string("none"));
+    nh_.param("filter_width",filter_width_,std::string("4"));
+    nh_.param("filter_error_handling",filter_error_handling_,std::string("tolerant"));
+    nh_.param("filter_maximum_margin",filter_maximum_margin_,std::string("100"));
+    nh_.param("filter_remission_threshold",filter_remission_threshold_,std::string("reflector_std"));
+
 
     if( scanner_ip_ == "" )
     {
@@ -58,6 +68,15 @@ R2000Node::R2000Node():nh_("~")
     scan_publisher_ = nh_.advertise<sensor_msgs::LaserScan>("scan",100);
     cmd_subscriber_ = nh_.subscribe("control_command",100,&R2000Node::cmdMsgCallback,this);
     get_scan_data_timer_ = nh_.createTimer(ros::Duration(1/(2*std::atof(driver_->getParametersCached().at("scan_frequency").c_str()))), &R2000Node::getScanData, this);
+
+
+    // create service
+    // set scan angle
+    set_scan_angle_srv_ = nh_.advertiseService("/r2000_node/set_angle",&R2000Node::setAngleCbk,this);
+
+
+    // set filter
+    set_filter_srv_ = nh_.advertiseService("/r2000_node/set_filter",&R2000Node::setFilterCbk,this);
 }
 
 //-----------------------------------------------------------------------------
@@ -82,6 +101,22 @@ bool R2000Node::connect()
     //-------------------------------------------------------------------------
     driver_->setScanFrequency(scan_frequency_);
     driver_->setSamplesPerScan(samples_per_scan_);
+    // set filter
+    std::map<std::string, std::string> setparams, output_config;
+    setparams["samples_per_scan"] = std::to_string(samples_per_scan_);
+    setparams["scan_frequency"] = std::to_string(scan_frequency_);
+
+    setparams["filter_type"] = filter_type_;
+    setparams["filter_width"] = filter_width_;
+    setparams["filter_error_handling"] = filter_error_handling_;
+    setparams["filter_remission_threshold"] = filter_remission_threshold_;
+    driver_->setParams(setparams);
+    output_config["start_angle"] =  std::to_string(-180*10000);
+
+
+    //set scan output param : start angle
+
+
     auto params = driver_->getParameters();
     std::cout << "Current scanner settings:" << std::endl;
     std::cout << "============================================================" << std::endl;
@@ -92,13 +127,28 @@ bool R2000Node::connect()
     // Start capturing scanner data
     //-------------------------------------------------------------------------
     std::cout << "Starting capturing: ";
-    if( driver_->startCapturingTCP() )
+    if( driver_->createHandle() )
         std::cout << "OK" << std::endl;
     else
     {
         std::cout << "FAILED!" << std::endl;
         return false;
     }
+#if 1
+        driver_->setOutputConfig(output_config);
+
+        auto config = driver_->getOutputParameterList();
+
+        std::cout << "Current config settings:" << std::endl;
+        std::cout << "============================================================" << std::endl;
+        for( const auto& p : config )
+            std::cout << p.first << " : " << p.second << std::endl;
+        std::cout << "============================================================" << std::endl;
+#endif
+
+        driver_->startCapturingTCP();
+    std::cout << "Finish connect!" << std::endl;
+
     return true;
 }
 
@@ -122,21 +172,24 @@ void R2000Node::getScanData(const ros::TimerEvent &e)
     scanmsg.header.frame_id = frame_id_;
     scanmsg.header.stamp = ros::Time::now();
 
-    scanmsg.angle_min = -M_PI;
-    scanmsg.angle_max = +M_PI;
+    // start_angle
+    scanmsg.angle_min = start_angle_*M_PI/180.0;
+    // start_angle + fov*360/3600
+    scanmsg.angle_max = end_angle_*M_PI/180.0;
     scanmsg.angle_increment = 2*M_PI/float(scandata.distance_data.size());
+    // given hz
     scanmsg.time_increment = 1/35.0f/float(scandata.distance_data.size());
 
     scanmsg.scan_time = 1/std::atof(driver_->getParametersCached().at("scan_frequency").c_str());
     scanmsg.range_min = std::atof(driver_->getParametersCached().at("radial_range_min").c_str());
     scanmsg.range_max = std::atof(driver_->getParametersCached().at("radial_range_max").c_str());
 
-    scanmsg.ranges.resize(scandata.distance_data.size());
-    scanmsg.intensities.resize(scandata.amplitude_data.size());
-    for( std::size_t i=0; i<scandata.distance_data.size(); i++ )
+//    scanmsg.ranges.resize(scandata.distance_data.size());
+//    scanmsg.intensities.resize(scandata.amplitude_data.size());
+    for( std::size_t i=std::size_t((scanmsg.angle_min+M_PI)/scanmsg.angle_increment) ; i<std::size_t((scanmsg.angle_max+M_PI)/scanmsg.angle_increment); i++ )
     {
-        scanmsg.ranges[i] = float(scandata.distance_data[i])/1000.0f;
-        scanmsg.intensities[i] = scandata.amplitude_data[i];
+        scanmsg.ranges.push_back(float(scandata.distance_data[i])/1000.0f);
+        scanmsg.intensities.push_back(scandata.amplitude_data[i]);
     }
     scan_publisher_.publish(scanmsg);
 }
@@ -174,6 +227,71 @@ void R2000Node::cmdMsgCallback(const std_msgs::StringConstPtr &msg)
         }
     }
 }
+
+    bool R2000Node::setFilterCbk(pepperl_fuchs_r2000::set_filterRequest &req,
+                                 pepperl_fuchs_r2000::set_filterResponse &res) {
+        std::cout<<"==== get set filter "<<std::endl;
+
+        driver_->stopScanoutput();
+
+        // create config param
+        std::map<std::string, std::string> filter_params;
+        filter_params["filter_type"] = req.filter_type.data;
+        filter_params["filter_width"] = req.filter_width.data;
+        filter_params["filter_error_handling"] = req.filter_error_handling.data;
+        filter_params["filter_remission_threshold"] = req.filter_remission_threshold.data;
+        bool succ =driver_->setParams(filter_params);
+
+        // if faliure ;reset to default
+        if (!succ){
+            filter_params["filter_type"] = filter_type_;
+            filter_params["filter_width"] = filter_width_;
+            filter_params["filter_error_handling"] = filter_error_handling_;
+            filter_params["filter_remission_threshold"] = filter_remission_threshold_;
+            driver_->setParams(filter_params);
+            res.success = false;
+        }else{
+            res.success = true;
+
+        };
+
+        auto params = driver_->getParameters();
+        std::cout << "Current scanner settings:" << std::endl;
+        std::cout << "============================================================" << std::endl;
+        for( const auto& p : params )
+            std::cout << p.first << " : " << p.second << std::endl;
+        std::cout << "============================================================" << std::endl;
+
+
+        // restart cap
+        driver_->startScanoutput();
+
+        return succ;
+
+
+
+
+    }
+
+
+    bool R2000Node::setAngleCbk(pepperl_fuchs_r2000::set_scan_angleRequest &req,
+                                pepperl_fuchs_r2000::set_scan_angleResponse &res) {
+
+        driver_->stopScanoutput();
+
+        start_angle_ = req.start_angle;
+        start_angle_ = std::max(start_angle_,-180);
+        end_angle_ = req.end_angle;
+        end_angle_ = std::min(end_angle_,180);
+        res.success = true;
+        driver_->startScanoutput();
+
+        std::cout<<"====\nstart angle "<<start_angle_<<"end angle "<<end_angle_<<std::endl;
+
+        return true;
+
+
+    }
 
 //-----------------------------------------------------------------------------
 } // NS

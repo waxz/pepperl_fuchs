@@ -36,6 +36,13 @@ public:
     //! @returns True on success, false otherwise
     bool setParameter(const std::string name, const std::string value);
 
+    // set parameters
+    bool setParameters(std::map<std::string, std::string> parameters);
+
+
+    // set_scanoutput_config
+    bool setOutputConfig(std::map<std::string, std::string> parameters);
+
     //! Get sensor parameter
     //! @param name Parameter name
     //! @returns Optional string value with value of given parameter name
@@ -45,6 +52,10 @@ public:
     //! @param names Parameter names
     //! @returns vector with string values with the values of the given parameter names
     std::map< std::string, std::string > getParameters( const std::vector< std::string >& names );
+
+    //getOutputParameterList
+    std::map< std::string, std::string > getOutputParameterList( const std::string& handle);
+
 
     //! List available ro/rw parameters
     //! @returns A vector with the names of all available parameters

@@ -11,7 +11,7 @@ ENDIF(NOT CMAKE_BUILD_TYPE)
 # This package requires c++0x
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++0x -Wfatal-errors")
 
-find_package(catkin REQUIRED COMPONENTS
+find_package(catkin REQUIRED COMPONENTS cmake_modules geometry_msgs  tf nav_msgs
   roscpp
   std_msgs
   sensor_msgs
@@ -19,6 +19,17 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Boost REQUIRED COMPONENTS
   thread
 )
+
+#define srv and msg
+#define srv and msg
+add_service_files(FILES
+        set_scan_angle.srv
+        set_filter.srv
+        )
+
+generate_messages(DEPENDENCIES
+        std_msgs
+        )
 
 catkin_package(
   INCLUDE_DIRS include ${Boost_INCLUDE_DIRS}
